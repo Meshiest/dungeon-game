@@ -74,7 +74,8 @@ var screenHeight = 600
 func SizeCallback(w *glfw.Window, width, height int) {
   screenWidth = width
   screenHeight = height
-  projection = mgl32.Perspective(mgl32.DegToRad(float32(fov)), float32(screenWidth)/float32(screenHeight), 0.1, 100.0)
+  projection = mgl32.Perspective(mgl32.DegToRad(float32(fov)), float32(screenWidth)/float32(screenHeight), 0.1, 20.0)
+  gl.Viewport(0, 0, int32(width), int32(height))
 }
 
 var  tiles []float32
@@ -166,7 +167,7 @@ func main() {
   }
   gl.UseProgram(program)
 
-  projection = mgl32.Perspective(mgl32.DegToRad(float32(fov)), float32(screenWidth)/float32(screenHeight), 0.01, 10.0)
+  projection = mgl32.Perspective(mgl32.DegToRad(float32(fov)), float32(screenWidth)/float32(screenHeight), 0.01, 20.0)
   projectionUniform := gl.GetUniformLocation(program, gl.Str("projection\x00"))
   gl.UniformMatrix4fv(projectionUniform, 1, false, &projection[0])
 
@@ -233,14 +234,15 @@ func main() {
     }
 
 
-    mouseSensitivity := 4.0
+    mouseSensitivity := 0.75
     mouseX, mouseY := window.GetCursorPos()
     window.SetCursorPos(float64(screenWidth/2), float64(screenHeight/2))
     ratio := float64(screenWidth)/float64(screenHeight)
-    mouseDeltaX := float64(screenWidth)/2.0 - mouseX
-    mouseDeltaY := float64(screenHeight)/2.0 - mouseY
+    mouseDeltaX := float64(screenWidth/2) - mouseX
+    mouseDeltaY := float64(screenHeight/2) - mouseY
     yaw -= mouseSensitivity * delta * mouseDeltaX
     pitch += mouseSensitivity * delta * mouseDeltaY * ratio
+    fmt.Println(mouseDeltaX, mouseDeltaY)
 
     if pitch > math.Pi/2 {
       pitch = math.Pi/2
@@ -331,7 +333,7 @@ out vec2 fragTexCoord;
 out float dist;
 
 void main() {
-  float fogDist = 5;
+  float fogDist = 8;
   gl_Position = projection * camera * world * vec4(vert, 1);
   dist = max(min(length(gl_Position), fogDist), 0)/fogDist;
   fragTexCoord = vertTexCoord;
