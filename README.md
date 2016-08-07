@@ -11,3 +11,5 @@ Controls are as follows:
 * WASD to move
 * Mouse to look
 * Escape to quit
+
+It currently looks like this: ![](http://i.imgur.com/yxEU9KC.png)
