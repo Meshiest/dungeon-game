@@ -191,31 +191,27 @@ func main() {
     log.Fatalln(err)
   }
 
-  /*program, err := newProgram(vertexShader, fragmentShader)
-  if err != nil {
-    panic(err)
-  }*/
-    var vao uint32
-    gl.GenVertexArrays(1, &vao)
-    gl.BindVertexArray(vao)
+  var vao uint32
+  gl.GenVertexArrays(1, &vao)
+  gl.BindVertexArray(vao)
 
-    var vbo uint32
-    gl.GenBuffers(1, &vbo)
-    gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
-    gl.BufferData(gl.ARRAY_BUFFER, len(tiles) * 4, gl.Ptr(tiles), gl.STATIC_DRAW)
+  var vbo uint32
+  gl.GenBuffers(1, &vbo)
+  gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
+  gl.BufferData(gl.ARRAY_BUFFER, len(tiles) * 4, gl.Ptr(tiles), gl.STATIC_DRAW)
 
-    vertAttrib := uint32(gl.GetAttribLocation(program, gl.Str("vert\x00")))
-    gl.EnableVertexAttribArray(vertAttrib)
-    gl.VertexAttribPointer(vertAttrib, 3, gl.FLOAT, false, 5*4, gl.PtrOffset(0))
+  vertAttrib := uint32(gl.GetAttribLocation(program, gl.Str("vert\x00")))
+  gl.EnableVertexAttribArray(vertAttrib)
+  gl.VertexAttribPointer(vertAttrib, 3, gl.FLOAT, false, 5*4, gl.PtrOffset(0))
 
-    texCoordAttrib := uint32(gl.GetAttribLocation(program, gl.Str("vertTexCoord\x00")))
-    gl.EnableVertexAttribArray(texCoordAttrib)
-    gl.VertexAttribPointer(texCoordAttrib, 2, gl.FLOAT, false, 5*4, gl.PtrOffset(3*4))
+  texCoordAttrib := uint32(gl.GetAttribLocation(program, gl.Str("vertTexCoord\x00")))
+  gl.EnableVertexAttribArray(texCoordAttrib)
+  gl.VertexAttribPointer(texCoordAttrib, 2, gl.FLOAT, false, 5*4, gl.PtrOffset(3*4))
 
 
-    gl.Enable(gl.DEPTH_TEST)
-    gl.DepthFunc(gl.LESS)
-    gl.ClearColor(0, 0, 0, 1)
+  gl.Enable(gl.DEPTH_TEST)
+  gl.DepthFunc(gl.LESS)
+  gl.ClearColor(0, 0, 0, 1)
 
   previousTime := glfw.GetTime()
   lastFPS := previousTime
@@ -231,7 +227,7 @@ func main() {
 
     fps ++
     if time - lastFPS > 1 {
-      //fmt.Println("FPS is ",fps)
+      fmt.Println("FPS is ",fps)
       lastFPS = time
       fps = 0
     }
@@ -245,8 +241,7 @@ func main() {
     mouseDeltaY := float64(screenHeight)/2.0 - mouseY
     yaw -= mouseSensitivity * delta * mouseDeltaX
     pitch += mouseSensitivity * delta * mouseDeltaY * ratio
-    fmt.Println(yaw, pitch, mouseDeltaX, mouseDeltaY)
-    //fmt.Println(yaw)
+
     if pitch > math.Pi/2 {
       pitch = math.Pi/2
     }
@@ -284,23 +279,30 @@ func main() {
       }
       positionX += float64(rotated.X()) * speed * delta
       positionY += float64(rotated.Y()) * speed * delta
+      x := int(math.Floor(positionX+0.5))
+      y := int(math.Floor(positionY+0.5))
+
+      if x >= 0 && y >= 0 && x < len(dungeon.Grid) && y < len(dungeon.Grid) {
+        if y > 0 && dungeon.Grid[y-1][x] == 0 && positionY - float64(y) < -0.4 {
+          positionY = float64(y)-0.4
+        }
+        if y < len(dungeon.Grid) - 1 && dungeon.Grid[y+1][x] == 0 && positionY - float64(y) > 0.4 {
+          positionY = float64(y)+0.4
+        }
+        if x > 0 && dungeon.Grid[y][x-1] == 0 && positionX - float64(x) < -0.4 {
+          positionX = float64(x)-0.4
+        }
+        if x < len(dungeon.Grid) - 1 && dungeon.Grid[y][x+1] == 0 && positionX - float64(x) > 0.4 {
+          positionX = float64(x)+0.4
+        }
+      }
     }
 
-    //matRoll := mgl32.HomogRotate3D(roll, mgl32.Vec3{0, 0, 1})
-    //matPitch := mgl32.HomogRotate3D(pitch, mgl32.Vec3{1, 0, 0})
-    //matYaw := mgl32.HomogRotate3D(float32(yaw), mgl32.Vec3{0, 1, 0})
-    
-    //rotate := matRoll * matPitch * matYaw 
-
-
-    //camera := matYaw.Mul4(mgl32.Translate3D(float32(positionX), 1, float32(positionY)))
     camera = mgl32.LookAt(
         float32(positionX), float32(0.25), float32(positionY),
         float32(positionX + math.Cos(yaw)), float32(0.25 + math.Sin(pitch)), float32(positionY + math.Sin(yaw)),
         0, 1, 0,
       )
-    //mgl32.AnglesToQuat(float32(yaw), float32(pitch), 0, mgl32.YZX).Mat4()
-    //camera = camera.Add(mgl32.Translate3D(float32(positionX), 0, float32(positionY)))
     gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
     gl.BindVertexArray(vao)
     gl.ActiveTexture(gl.TEXTURE0)
