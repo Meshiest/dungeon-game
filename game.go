@@ -95,8 +95,8 @@ func main() {
   fov = 90.0
   dungeon := dungeon.NewDungeon(50, 200)
   room := dungeon.Rooms[0]
-  positionX = float64(room.X + room.Width/2)
-  positionY = float64(room.Y + room.Height/2)
+  positionX = float64(room.Y + room.Height/2)
+  positionY = float64(room.X + room.Width/2)
   dungeon.Print()
 
   tiles = []float32{}
@@ -166,7 +166,7 @@ func main() {
   }
   gl.UseProgram(program)
 
-  projection = mgl32.Perspective(mgl32.DegToRad(float32(fov)), float32(screenWidth)/float32(screenHeight), 0.01, 100.0)
+  projection = mgl32.Perspective(mgl32.DegToRad(float32(fov)), float32(screenWidth)/float32(screenHeight), 0.01, 10.0)
   projectionUniform := gl.GetUniformLocation(program, gl.Str("projection\x00"))
   gl.UniformMatrix4fv(projectionUniform, 1, false, &projection[0])
 
@@ -283,19 +283,20 @@ func main() {
       y := int(math.Floor(positionY+0.5))
 
       if x >= 0 && y >= 0 && x < len(dungeon.Grid) && y < len(dungeon.Grid) {
-        if y > 0 && dungeon.Grid[y-1][x] == 0 && positionY - float64(y) < -0.4 {
+        if (y == 0 || dungeon.Grid[y-1][x] == 0) && positionY - float64(y) < -0.4 {
           positionY = float64(y)-0.4
         }
-        if y < len(dungeon.Grid) - 1 && dungeon.Grid[y+1][x] == 0 && positionY - float64(y) > 0.4 {
+        if (y == len(dungeon.Grid) - 1 || dungeon.Grid[y+1][x] == 0) && positionY - float64(y) > 0.4 {
           positionY = float64(y)+0.4
         }
-        if x > 0 && dungeon.Grid[y][x-1] == 0 && positionX - float64(x) < -0.4 {
+        if (x == 0 || dungeon.Grid[y][x-1] == 0) && positionX - float64(x) < -0.4 {
           positionX = float64(x)-0.4
         }
-        if x < len(dungeon.Grid) - 1 && dungeon.Grid[y][x+1] == 0 && positionX - float64(x) > 0.4 {
+        if (x == len(dungeon.Grid) - 1 || dungeon.Grid[y][x+1] == 0) && positionX - float64(x) > 0.4 {
           positionX = float64(x)+0.4
         }
       }
+      //fmt.Println(x, y, dungeon.Grid[y][x])
     }
 
     camera = mgl32.LookAt(
@@ -327,10 +328,13 @@ in vec3 vert;
 in vec2 vertTexCoord;
 
 out vec2 fragTexCoord;
+out float dist;
 
 void main() {
-    fragTexCoord = vertTexCoord;
-    gl_Position = projection * camera * world * vec4(vert, 1);
+  float fogDist = 5;
+  gl_Position = projection * camera * world * vec4(vert, 1);
+  dist = max(min(length(gl_Position), fogDist), 0)/fogDist;
+  fragTexCoord = vertTexCoord;
 }
 ` + "\x00"
 
@@ -339,10 +343,11 @@ var fragmentShader = `
 uniform sampler2D tex;
 
 in vec2 fragTexCoord;
+in float dist;
 
 out vec4 color;
 void main() {
-  color = texture(tex, fragTexCoord);
+  color = mix(texture(tex, fragTexCoord), vec4(0, 0, 0, 1), dist);
 }
 ` + "\x00"
 
