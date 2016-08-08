@@ -7,13 +7,15 @@ import (
     "image"
     "image/draw"
     _ "image/png"
-    "log"
     "fmt"
     "os"
     "strings"
     "github.com/meshiest/go-dungeon/dungeon"
     "math"
     "runtime"
+    "io/ioutil"
+    "math/rand"
+    "time"
 )
 
 var keys map[glfw.Key]bool
@@ -68,6 +70,16 @@ func KeyCallback(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action,
 func MouseButtonCallback(w *glfw.Window, button glfw.MouseButton, action glfw.Action, mods glfw.ModifierKey) {
 
 }
+
+type Enemy struct {
+  X, Y float64
+}
+
+func check(e error) {
+    if e != nil {
+        panic(e)
+    }
+}
  
 var screenWidth = 800
 var screenHeight = 600
@@ -78,36 +90,65 @@ func SizeCallback(w *glfw.Window, width, height int) {
   gl.Viewport(0, 0, int32(width), int32(height))
 }
 
-var  tiles []float32
+var vertexArray []float32
 var numFloorTiles, numWallTiles int
 var yaw, pitch, fov, positionX, positionY float64
 var projection mgl32.Mat4
+
+const (
+  FOG_DISTANCE float32 = 8.0
+)
 
 func init() {
   runtime.LockOSThread()
 }
 func main() {
   keys = map[glfw.Key]bool{}
-  
+  rand.Seed(time.Now().Unix())
+
   yaw = 0
   pitch = 0
   positionX = 0
   positionY = 0
   fov = 90.0
+  fmt.Println("Generating Dungeon...")
   dungeon := dungeon.NewDungeon(50, 200)
+  fmt.Println("Generated!")
   room := dungeon.Rooms[0]
   positionX = float64(room.Y + room.Height/2)
   positionY = float64(room.X + room.Width/2)
-  dungeon.Print()
+  //dungeon.Print()
 
-  tiles = []float32{}
+  enemies := []Enemy{}
+
+  vertexArray = []float32{
+    // Enemy Sprite
+    -0.3, 0.6, 0, 1, 0,
+     0.3, 0.6, 0, 0, 0,
+    -0.3, 0.0, 0, 1, 1,
+     0.3, 0.6, 0, 0, 0,
+     0.3, 0.0, 0, 0, 1,
+    -0.3, 0.0, 0, 1, 1,
+
+    // Blood Sprite
+    -0.5, 0, -0.5, 0, 0,
+     0.5, 0, -0.5, 1, 0,
+    -0.5, 0,  0.5, 0, 1,
+     0.5, 0, -0.5, 1, 0,
+     0.5, 0,  0.5, 1, 1,
+    -0.5, 0,  0.5, 0, 1,
+  }
+
   numFloorTiles = 0
   numWallTiles = 0
   for y, row := range(dungeon.Grid) {
     for x, col := range(row) {
       if col == 1 {
-        tiles = append(tiles, FloorTile(x, y)...)
+        vertexArray = append(vertexArray, FloorTile(x, y)...)
         numFloorTiles ++
+        if rand.Int() % 10 == 0 {
+          enemies = append(enemies, Enemy{X: float64(x), Y: float64(y)})
+        }
       }
     }
   }
@@ -116,19 +157,19 @@ func main() {
     for x, col := range(row) {
       if col == 1 {
         if y > 0 && dungeon.Grid[y-1][x] == 0 || y == 0 {
-          tiles = append(tiles, WallTile(x, y, true, mgl32.Vec2{0, -0.5})...)
+          vertexArray = append(vertexArray, WallTile(x, y, true, mgl32.Vec2{0, -0.5})...)
           numWallTiles ++
         }
         if y < len(dungeon.Grid) - 1 && dungeon.Grid[y+1][x] == 0 || y == len(dungeon.Grid) - 1 {
-          tiles = append(tiles, WallTile(x, y, true, mgl32.Vec2{0, 0.5})...)
+          vertexArray = append(vertexArray, WallTile(x, y, true, mgl32.Vec2{0, 0.5})...)
           numWallTiles ++
         }
         if x > 0 && dungeon.Grid[y][x-1] == 0 || x == 0 {
-          tiles = append(tiles, WallTile(x, y, false, mgl32.Vec2{-0.5, 0})...)
+          vertexArray = append(vertexArray, WallTile(x, y, false, mgl32.Vec2{-0.5, 0})...)
           numWallTiles ++
         }
         if x < len(row) - 1 && dungeon.Grid[y][x+1] == 0 || x == len(row) - 1 {
-          tiles = append(tiles, WallTile(x, y, false, mgl32.Vec2{0.5, 0})...)
+          vertexArray = append(vertexArray, WallTile(x, y, false, mgl32.Vec2{0.5, 0})...)
           numWallTiles ++
         }
       }
@@ -136,18 +177,14 @@ func main() {
   }
 
   err := glfw.Init()
-  if err != nil {
-    panic(err)
-  }
+  check(err)
+
   defer glfw.Terminate()
 
   glfw.WindowHint(glfw.Resizable, glfw.True)
 
   window, err := glfw.CreateWindow(screenWidth, screenHeight, "Dungeon", nil, nil)
-
-  if err != nil {
-    panic(err)
-  }
+  check(err)
 
 
   window.MakeContextCurrent()
@@ -157,14 +194,20 @@ func main() {
   window.SetSizeCallback(glfw.SizeCallback(SizeCallback))
   window.SetMouseButtonCallback(glfw.MouseButtonCallback(MouseButtonCallback))
 
-  if err := gl.Init(); err != nil {
-    panic(err)
-  }
+  fmt.Println("Initializing GL")
+  err = gl.Init()
+  check(err)
 
-  program, err := newProgram(vertexShader, fragmentShader)
-  if err != nil {
-    panic(err)
-  }
+  fmt.Println("Loading Shaders")
+  vertexShader, err := ioutil.ReadFile("shaders/shader.vert")
+  check(err)
+
+  fragmentShader, err := ioutil.ReadFile("shaders/shader.frag")
+  check(err)
+
+  program, err := newProgram(string(vertexShader) + "\x00", string(fragmentShader) + "\x00")
+  check(err)
+
   gl.UseProgram(program)
 
   projection = mgl32.Perspective(mgl32.DegToRad(float32(fov)), float32(screenWidth)/float32(screenHeight), 0.01, 20.0)
@@ -176,21 +219,28 @@ func main() {
   cameraUniform := gl.GetUniformLocation(program, gl.Str("camera\x00"))
   gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
 
-  world := mgl32.Ident4()
-  worldUniform := gl.GetUniformLocation(program, gl.Str("world\x00"))
-  gl.UniformMatrix4fv(worldUniform, 1, false, &world[0])
+  model := mgl32.Ident4()
+  modelUniform := gl.GetUniformLocation(program, gl.Str("model\x00"))
+  gl.UniformMatrix4fv(modelUniform, 1, false, &model[0])
 
   textureUniform := gl.GetUniformLocation(program, gl.Str("tex\x00"))
   gl.Uniform1i(textureUniform, 0)
 
+  fogDistUniform := gl.GetUniformLocation(program, gl.Str("fogDist\x00"))
+  gl.Uniform1f(fogDistUniform, FOG_DISTANCE)
+
+  fmt.Println("Loading Textures")
   floorTexture, err := newTexture("textures/floor.png")
-  if err != nil {
-    log.Fatalln(err)
-  }
+  check(err)
+
   wallTexture, err := newTexture("textures/wall.png")
-  if err != nil {
-    log.Fatalln(err)
-  }
+  check(err)
+
+  enemyTexture, err := newTexture("textures/monster.png")
+  check(err)
+
+  bloodTexture, err := newTexture("textures/blood.png")
+  check(err)
 
   var vao uint32
   gl.GenVertexArrays(1, &vao)
@@ -199,7 +249,7 @@ func main() {
   var vbo uint32
   gl.GenBuffers(1, &vbo)
   gl.BindBuffer(gl.ARRAY_BUFFER, vbo)
-  gl.BufferData(gl.ARRAY_BUFFER, len(tiles) * 4, gl.Ptr(tiles), gl.STATIC_DRAW)
+  gl.BufferData(gl.ARRAY_BUFFER, len(vertexArray) * 4, gl.Ptr(vertexArray), gl.STATIC_DRAW)
 
   vertAttrib := uint32(gl.GetAttribLocation(program, gl.Str("vert\x00")))
   gl.EnableVertexAttribArray(vertAttrib)
@@ -208,7 +258,6 @@ func main() {
   texCoordAttrib := uint32(gl.GetAttribLocation(program, gl.Str("vertTexCoord\x00")))
   gl.EnableVertexAttribArray(texCoordAttrib)
   gl.VertexAttribPointer(texCoordAttrib, 2, gl.FLOAT, false, 5*4, gl.PtrOffset(3*4))
-
 
   gl.Enable(gl.DEPTH_TEST)
   gl.DepthFunc(gl.LESS)
@@ -242,7 +291,7 @@ func main() {
     mouseDeltaY := float64(screenHeight/2) - mouseY
     yaw -= mouseSensitivity * delta * mouseDeltaX
     pitch += mouseSensitivity * delta * mouseDeltaY * ratio
-    fmt.Println(mouseDeltaX, mouseDeltaY)
+    //fmt.Println(yaw/math.Pi*360)
 
     if pitch > math.Pi/2 {
       pitch = math.Pi/2
@@ -307,51 +356,33 @@ func main() {
         0, 1, 0,
       )
     gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
+
+    model = mgl32.Ident4()
+    gl.UniformMatrix4fv(modelUniform, 1, false, &model[0])
+
     gl.BindVertexArray(vao)
     gl.ActiveTexture(gl.TEXTURE0)
     gl.BindTexture(gl.TEXTURE_2D, floorTexture)
-    gl.DrawArrays(gl.TRIANGLES, 0, int32(numFloorTiles*3*2))
+    gl.DrawArrays(gl.TRIANGLES, int32(12), int32(numFloorTiles*3*2))
     gl.BindTexture(gl.TEXTURE_2D, wallTexture)
-    gl.DrawArrays(gl.TRIANGLES, int32(numFloorTiles*3*2), int32(numWallTiles*3*2))
+    gl.DrawArrays(gl.TRIANGLES, int32(12 + numFloorTiles*3*2), int32(numWallTiles*3*2))
+
+
+    gl.BindTexture(gl.TEXTURE_2D, enemyTexture)
+    for _, enemy := range(enemies) {
+      model = mgl32.Translate3D(float32(enemy.X), 0.1, float32(enemy.Y))
+      model = model.Mul4(mgl32.HomogRotate3DY(float32(math.Pi/2-math.Atan2(enemy.Y-positionY, enemy.X-positionX))))
+      //model = mgl32.LookAt(float32(enemy.X), 0.1, float32(enemy.Y), float32(positionX), 0.1, float32(positionY), 0, 1, 0)
+      gl.UniformMatrix4fv(modelUniform, 1, false, &model[0])
+      gl.DrawArrays(gl.TRIANGLES, 0, 6)
+    }
+
+    gl.BindTexture(gl.TEXTURE_2D, bloodTexture)
 
     window.SwapBuffers()
     glfw.PollEvents()
   }
 }
-
-var vertexShader = `
-#version 330
-
-uniform mat4 projection;
-uniform mat4 camera;
-uniform mat4 world;
-
-in vec3 vert;
-in vec2 vertTexCoord;
-
-out vec2 fragTexCoord;
-out float dist;
-
-void main() {
-  float fogDist = 8;
-  gl_Position = projection * camera * world * vec4(vert, 1);
-  dist = max(min(length(gl_Position), fogDist), 0)/fogDist;
-  fragTexCoord = vertTexCoord;
-}
-` + "\x00"
-
-var fragmentShader = `
-#version 330 core
-uniform sampler2D tex;
-
-in vec2 fragTexCoord;
-in float dist;
-
-out vec4 color;
-void main() {
-  color = mix(texture(tex, fragTexCoord), vec4(0, 0, 0, 1), dist);
-}
-` + "\x00"
 
 func newTexture(file string) (uint32, error) {
   imgFile, err := os.Open(file)
