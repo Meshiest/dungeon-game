@@ -4,21 +4,16 @@ import (
     "github.com/go-gl/glfw/v3.2/glfw"
     "github.com/go-gl/gl/v4.1-core/gl"
     "github.com/go-gl/mathgl/mgl32"
-    "image"
-    "image/draw"
-    _ "image/png"
     "fmt"
-    "os"
-    "strings"
     "github.com/meshiest/go-dungeon/dungeon"
     "math"
     "runtime"
     "io/ioutil"
     "math/rand"
     "time"
+
 )
 
-var keys map[glfw.Key]bool
 
 func FloorTile (xInt int, zInt int) ([]float32) {
   x := float32(xInt)
@@ -54,46 +49,19 @@ func WallTile (xInt int, zInt int, dir bool, offset mgl32.Vec2) ([]float32) {
   }
 }
 
-func KeyCallback(w *glfw.Window, key glfw.Key, scancode int, action glfw.Action, mods glfw.ModifierKey) {
-  if action == glfw.Press {
-    switch key {
-    case glfw.KeyEscape:
-      glfw.Terminate()
-      os.Exit(0)
-    }
-  }
-  if action != glfw.Repeat {  
-    keys[key] = action == glfw.Press
-  }
-}
-
-func MouseButtonCallback(w *glfw.Window, button glfw.MouseButton, action glfw.Action, mods glfw.ModifierKey) {
-
-}
-
-type Enemy struct {
-  X, Y float64
-}
-
 func check(e error) {
     if e != nil {
         panic(e)
     }
 }
- 
 var screenWidth = 800
 var screenHeight = 600
-func SizeCallback(w *glfw.Window, width, height int) {
-  screenWidth = width
-  screenHeight = height
-  projection = mgl32.Perspective(mgl32.DegToRad(float32(fov)), float32(screenWidth)/float32(screenHeight), 0.01, 20.0)
-  gl.Viewport(0, 0, int32(width), int32(height))
-}
 
 var vertexArray []float32
 var numFloorTiles, numWallTiles int
-var yaw, pitch, fov, positionX, positionY float64
+var fov float64
 var projection mgl32.Mat4
+
 
 const (
   FOG_DISTANCE float32 = 8.0
@@ -102,22 +70,27 @@ const (
 func init() {
   runtime.LockOSThread()
 }
+
 func main() {
   keys = map[glfw.Key]bool{}
   rand.Seed(time.Now().Unix())
 
-  yaw = 0
-  pitch = 0
-  positionX = 0
-  positionY = 0
+  player := &Player{
+    Yaw: 0,
+    Pitch: 0,
+    X: 0,
+    Y: 0,
+    Speed: 2,
+    Size: 0.7,
+  }
   fov = 90.0
   fmt.Println("Generating Dungeon...")
   dungeon := dungeon.NewDungeon(50, 200)
   fmt.Println("Generated!")
   room := dungeon.Rooms[0]
-  positionX = float64(room.Y + room.Height/2)
-  positionY = float64(room.X + room.Width/2)
-  //dungeon.Print()
+  player.X = float64(room.Y + room.Height/2)
+  player.Y = float64(room.X + room.Width/2)
+  dungeon.Print()
 
   enemies := []Enemy{}
 
@@ -147,7 +120,11 @@ func main() {
         vertexArray = append(vertexArray, FloorTile(x, y)...)
         numFloorTiles ++
         if rand.Int() % 10 == 0 {
-          enemies = append(enemies, Enemy{X: float64(x), Y: float64(y)})
+          enemies = append(enemies, Enemy{
+            X: float64(x),
+            Y: float64(y),
+            Size: 0.7,
+          })
         }
       }
     }
@@ -282,22 +259,21 @@ func main() {
       fps = 0
     }
 
-
     mouseSensitivity := 0.75
     mouseX, mouseY := window.GetCursorPos()
     window.SetCursorPos(float64(screenWidth/2), float64(screenHeight/2))
     ratio := float64(screenWidth)/float64(screenHeight)
     mouseDeltaX := float64(screenWidth/2) - mouseX
     mouseDeltaY := float64(screenHeight/2) - mouseY
-    yaw -= mouseSensitivity * delta * mouseDeltaX
-    pitch += mouseSensitivity * delta * mouseDeltaY * ratio
+    player.Yaw -= mouseSensitivity * delta * mouseDeltaX
+    player.Pitch += mouseSensitivity * delta * mouseDeltaY * ratio
     //fmt.Println(yaw/math.Pi*360)
 
-    if pitch > math.Pi/2 {
-      pitch = math.Pi/2
+    if player.Pitch > math.Pi/2 {
+      player.Pitch = math.Pi/2
     }
-    if pitch < -math.Pi/2 {
-      pitch = -math.Pi/2
+    if player.Pitch < -math.Pi/2 {
+      player.Pitch = -math.Pi/2
     }
 
 
@@ -316,45 +292,33 @@ func main() {
     }
     direction = direction.Normalize()
     if direction.Len() > 0 {
-      speed := 2.0
       
+      boost := 1.0
       if keys[glfw.KeyLeftShift] {
-        speed *= 2
+        boost = 2.0
       }
 
-      cos := float32(math.Cos(yaw - math.Pi/2))
-      sin := float32(math.Sin(yaw - math.Pi/2))
+      cos := float32(math.Cos(player.Yaw - math.Pi/2))
+      sin := float32(math.Sin(player.Yaw - math.Pi/2))
       rotated := mgl32.Vec2{
         direction.X() * cos - sin * direction.Y(),
         direction.X() * sin + cos * direction.Y(),
       }
-      positionX += float64(rotated.X()) * speed * delta
-      positionY += float64(rotated.Y()) * speed * delta
-      x := int(math.Floor(positionX+0.5))
-      y := int(math.Floor(positionY+0.5))
+      player.X += float64(rotated.X()) * player.Speed * delta * boost
+      player.Y += float64(rotated.Y()) * player.Speed * delta * boost
 
-      if x >= 0 && y >= 0 && x < len(dungeon.Grid) && y < len(dungeon.Grid) {
-        if (y == 0 || dungeon.Grid[y-1][x] == 0) && positionY - float64(y) < -0.4 {
-          positionY = float64(y)-0.4
-        }
-        if (y == len(dungeon.Grid) - 1 || dungeon.Grid[y+1][x] == 0) && positionY - float64(y) > 0.4 {
-          positionY = float64(y)+0.4
-        }
-        if (x == 0 || dungeon.Grid[y][x-1] == 0) && positionX - float64(x) < -0.4 {
-          positionX = float64(x)-0.4
-        }
-        if (x == len(dungeon.Grid) - 1 || dungeon.Grid[y][x+1] == 0) && positionX - float64(x) > 0.4 {
-          positionX = float64(x)+0.4
-        }
-      }
-      //fmt.Println(x, y, dungeon.Grid[y][x])
     }
+    player.CollideWithDungeon(dungeon)
 
     camera = mgl32.LookAt(
-      float32(positionX), float32(0.25), float32(positionY),
-      float32(positionX + math.Cos(yaw)), float32(0.25 + math.Sin(pitch)), float32(positionY + math.Sin(yaw)),
+      float32(player.X), float32(0.25), float32(player.Y),
+      float32(player.X + math.Cos(player.Yaw)), float32(0.25 + math.Sin(player.Pitch)), float32(player.Y + math.Sin(player.Yaw)),
       0, 1, 0,
     )
+
+    //camera = mgl32.Translate3D(float32(player.X), 0.25, float32(player.Y))
+    //camera = camera.Mul4(mgl32.HomogRotate3DY(float32(player.Yaw)))
+      
 
     viewProj = projection.Mul4(camera)
     gl.UniformMatrix4fv(viewProjUniform, 1, false, &viewProj[0])
@@ -373,8 +337,8 @@ func main() {
     gl.BindTexture(gl.TEXTURE_2D, enemyTexture)
     for _, enemy := range(enemies) {
       model = mgl32.Translate3D(float32(enemy.X), 0.1, float32(enemy.Y))
-      model = model.Mul4(mgl32.HomogRotate3DY(float32(math.Pi/2-math.Atan2(enemy.Y-positionY, enemy.X-positionX))))
-      //model = mgl32.LookAt(float32(enemy.X), 0.1, float32(enemy.Y), float32(positionX), 0.1, float32(positionY), 0, 1, 0)
+      model = model.Mul4(mgl32.HomogRotate3DY(float32(math.Pi/2-math.Atan2(enemy.Y-player.Y, enemy.X-player.X))))
+      //model = mgl32.LookAt(float32(enemy.X), 0.1, float32(enemy.Y), float32(player.X), 0.1, float32(player.Y), 0, 1, 0)
       gl.UniformMatrix4fv(modelUniform, 1, false, &model[0])
       gl.DrawArrays(gl.TRIANGLES, 0, 6)
     }
@@ -384,101 +348,4 @@ func main() {
     window.SwapBuffers()
     glfw.PollEvents()
   }
-}
-
-func newTexture(file string) (uint32, error) {
-  imgFile, err := os.Open(file)
-  if err != nil {
-    return 0, fmt.Errorf("texture %q not found on disk: %v", file, err)
-  }
-  img, _, err := image.Decode(imgFile)
-  if err != nil {
-    return 0, err
-  }
-
-  rgba := image.NewRGBA(img.Bounds())
-  if rgba.Stride != rgba.Rect.Size().X*4 {
-    return 0, fmt.Errorf("unsupported stride")
-  }
-  draw.Draw(rgba, rgba.Bounds(), img, image.Point{0, 0}, draw.Src)
-
-  var texture uint32
-  gl.GenTextures(1, &texture)
-  gl.ActiveTexture(gl.TEXTURE0)
-  gl.BindTexture(gl.TEXTURE_2D, texture)
-  gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST)
-  gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST)
-  gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE)
-  gl.TexParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE)
-  gl.TexImage2D(
-    gl.TEXTURE_2D,
-    0,
-    gl.RGBA,
-    int32(rgba.Rect.Size().X),
-    int32(rgba.Rect.Size().Y),
-    0,
-    gl.RGBA,
-    gl.UNSIGNED_BYTE,
-    gl.Ptr(rgba.Pix))
-
-  return texture, nil
-}
-
-
-func newProgram(vertexShaderSource, fragmentShaderSource string) (uint32, error) {
-  vertexShader, err := compileShader(vertexShaderSource, gl.VERTEX_SHADER)
-  if err != nil {
-    return 0, err
-  }
-
-  fragmentShader, err := compileShader(fragmentShaderSource, gl.FRAGMENT_SHADER)
-  if err != nil {
-    return 0, err
-  }
-
-  program := gl.CreateProgram()
-
-  gl.AttachShader(program, vertexShader)
-  gl.AttachShader(program, fragmentShader)
-  gl.LinkProgram(program)
-
-  var status int32
-  gl.GetProgramiv(program, gl.LINK_STATUS, &status)
-  if status == gl.FALSE {
-    var logLength int32
-    gl.GetProgramiv(program, gl.INFO_LOG_LENGTH, &logLength)
-
-    log := strings.Repeat("\x00", int(logLength+1))
-    gl.GetProgramInfoLog(program, logLength, nil, gl.Str(log))
-
-    return 0, fmt.Errorf("failed to link program: %v", log)
-  }
-
-  gl.DeleteShader(vertexShader)
-  gl.DeleteShader(fragmentShader)
-
-  return program, nil
-}
-
-func compileShader(source string, shaderType uint32) (uint32, error) {
-  shader := gl.CreateShader(shaderType)
-
-  csources, free := gl.Strs(source)
-  gl.ShaderSource(shader, 1, csources, nil)
-  free()
-  gl.CompileShader(shader)
-
-  var status int32
-  gl.GetShaderiv(shader, gl.COMPILE_STATUS, &status)
-  if status == gl.FALSE {
-    var logLength int32
-    gl.GetShaderiv(shader, gl.INFO_LOG_LENGTH, &logLength)
-
-    log := strings.Repeat("\x00", int(logLength+1))
-    gl.GetShaderInfoLog(shader, logLength, nil, gl.Str(log))
-
-    return 0, fmt.Errorf("failed to compile %v: %v", source, log)
-  }
-
-  return shader, nil
 }
