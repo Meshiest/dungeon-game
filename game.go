@@ -92,7 +92,7 @@ func main() {
   player.Y = float64(room.X + room.Width/2)
   dungeon.Print()
 
-  enemies := []Enemy{}
+  enemies := []*Enemy{}
 
   vertexArray = []float32{
     // Enemy Sprite
@@ -120,10 +120,10 @@ func main() {
         vertexArray = append(vertexArray, FloorTile(x, y)...)
         numFloorTiles ++
         if rand.Int() % 10 == 0 {
-          enemies = append(enemies, Enemy{
+          enemies = append(enemies, &Enemy{
             X: float64(x),
             Y: float64(y),
-            Size: 0.7,
+            Size: 0.5,
           })
         }
       }
@@ -316,10 +316,6 @@ func main() {
       0, 1, 0,
     )
 
-    //camera = mgl32.Translate3D(float32(player.X), 0.25, float32(player.Y))
-    //camera = camera.Mul4(mgl32.HomogRotate3DY(float32(player.Yaw)))
-      
-
     viewProj = projection.Mul4(camera)
     gl.UniformMatrix4fv(viewProjUniform, 1, false, &viewProj[0])
 
@@ -336,9 +332,12 @@ func main() {
 
     gl.BindTexture(gl.TEXTURE_2D, enemyTexture)
     for _, enemy := range(enemies) {
+      from := mgl32.Vec2{float32(player.X-enemy.X), float32(player.Y-enemy.Y)}.Normalize()
+      enemy.X += float64(from.X()) * delta
+      enemy.Y += float64(from.Y()) * delta
+      enemy.CollideWithDungeon(dungeon)
       model = mgl32.Translate3D(float32(enemy.X), 0.1, float32(enemy.Y))
       model = model.Mul4(mgl32.HomogRotate3DY(float32(math.Pi/2-math.Atan2(enemy.Y-player.Y, enemy.X-player.X))))
-      //model = mgl32.LookAt(float32(enemy.X), 0.1, float32(enemy.Y), float32(player.X), 0.1, float32(player.Y), 0, 1, 0)
       gl.UniformMatrix4fv(modelUniform, 1, false, &model[0])
       gl.DrawArrays(gl.TRIANGLES, 0, 6)
     }
