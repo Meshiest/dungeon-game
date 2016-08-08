@@ -211,13 +211,13 @@ func main() {
   gl.UseProgram(program)
 
   projection = mgl32.Perspective(mgl32.DegToRad(float32(fov)), float32(screenWidth)/float32(screenHeight), 0.01, 20.0)
-  projectionUniform := gl.GetUniformLocation(program, gl.Str("projection\x00"))
-  gl.UniformMatrix4fv(projectionUniform, 1, false, &projection[0])
 
   //camera := mgl32.LookAtV(mgl32.Vec3{3, 1, 0}, mgl32.Vec3{2, 1, 0}, mgl32.Vec3{0, 1, 0})
   camera := mgl32.LookAtV(mgl32.Vec3{0, 1, 0}, mgl32.Vec3{1, 1, 0}, mgl32.Vec3{0, 1, 0})
-  cameraUniform := gl.GetUniformLocation(program, gl.Str("camera\x00"))
-  gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
+
+  viewProjUniform := gl.GetUniformLocation(program, gl.Str("viewProj\x00"))
+  viewProj := camera.Mul4(projection)
+  gl.UniformMatrix4fv(viewProjUniform, 1, false, &viewProj[0])
 
   model := mgl32.Ident4()
   modelUniform := gl.GetUniformLocation(program, gl.Str("model\x00"))
@@ -351,11 +351,13 @@ func main() {
     }
 
     camera = mgl32.LookAt(
-        float32(positionX), float32(0.25), float32(positionY),
-        float32(positionX + math.Cos(yaw)), float32(0.25 + math.Sin(pitch)), float32(positionY + math.Sin(yaw)),
-        0, 1, 0,
-      )
-    gl.UniformMatrix4fv(cameraUniform, 1, false, &camera[0])
+      float32(positionX), float32(0.25), float32(positionY),
+      float32(positionX + math.Cos(yaw)), float32(0.25 + math.Sin(pitch)), float32(positionY + math.Sin(yaw)),
+      0, 1, 0,
+    )
+
+    viewProj = projection.Mul4(camera)
+    gl.UniformMatrix4fv(viewProjUniform, 1, false, &viewProj[0])
 
     model = mgl32.Ident4()
     gl.UniformMatrix4fv(modelUniform, 1, false, &model[0])
