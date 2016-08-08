@@ -12,4 +12,8 @@ Controls are as follows:
 * Mouse to look
 * Escape to quit
 
-It currently looks like this: ![](http://i.imgur.com/yxEU9KC.png)
+It currently looks like this: 
+![](http://i.imgur.com/7koWbWq.png)
+
+Older pictures:
+![](http://i.imgur.com/yxEU9KC.png)
