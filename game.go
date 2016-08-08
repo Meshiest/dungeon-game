@@ -86,7 +86,7 @@ var screenHeight = 600
 func SizeCallback(w *glfw.Window, width, height int) {
   screenWidth = width
   screenHeight = height
-  projection = mgl32.Perspective(mgl32.DegToRad(float32(fov)), float32(screenWidth)/float32(screenHeight), 0.1, 20.0)
+  projection = mgl32.Perspective(mgl32.DegToRad(float32(fov)), float32(screenWidth)/float32(screenHeight), 0.01, 20.0)
   gl.Viewport(0, 0, int32(width), int32(height))
 }
 
@@ -210,7 +210,7 @@ func main() {
 
   gl.UseProgram(program)
 
-  projection = mgl32.Perspective(mgl32.DegToRad(float32(fov)), float32(screenWidth)/float32(screenHeight), 0.01, 20.0)
+  projection = mgl32.Perspective(mgl32.DegToRad(float32(fov)), float32(screenWidth)/float32(screenHeight), 0.001, 20.0)
 
   //camera := mgl32.LookAtV(mgl32.Vec3{3, 1, 0}, mgl32.Vec3{2, 1, 0}, mgl32.Vec3{0, 1, 0})
   camera := mgl32.LookAtV(mgl32.Vec3{0, 1, 0}, mgl32.Vec3{1, 1, 0}, mgl32.Vec3{0, 1, 0})
