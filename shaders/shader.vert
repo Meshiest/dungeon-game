@@ -13,6 +13,6 @@ out float dist;
 
 void main() {
   gl_Position = viewProj * model * vert;
-  dist = max(min(length(gl_Position), fogDist), 0)/fogDist;
+  dist = clamp(length(gl_Position), 0.0, fogDist)/fogDist;
   fragTexCoord = vertTexCoord;
 }
