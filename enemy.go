@@ -1,13 +1,40 @@
 package main
 
 import (
+	"github.com/go-gl/mathgl/mgl32"
 	"github.com/meshiest/go-dungeon/dungeon"
 	"math"
 )
 
 type Enemy struct {
-	X, Y, Size float64
-	Health     int
+	X, Y, Size, DPS float64
+	Health          int
+}
+
+func (e *Enemy) CollideWithEnemy(other *Enemy) {
+	vector := mgl32.Vec2{float32(e.X - other.X), float32(e.Y - other.Y)}
+	minDist := float32(e.Size/2.0 + other.Size/2.0)
+	if vector.Len() < minDist {
+		pushDist := float64((vector.Len() - minDist) / 2.0)
+		angle := math.Atan2(float64(vector.Y()), float64(vector.X()))
+		e.X += math.Cos(angle+math.Pi) * pushDist
+		e.Y += math.Sin(angle+math.Pi) * pushDist
+		other.X += math.Cos(angle) * pushDist
+		other.Y += math.Sin(angle) * pushDist
+	}
+}
+
+func (e *Enemy) CollideWithPlayer(player *Player) bool {
+	vector := mgl32.Vec2{float32(e.X - player.X), float32(e.Y - player.Y)}
+	minDist := float32(e.Size/2.0 + player.Size/2.0)
+	if vector.Len() < minDist {
+		pushDist := float64((vector.Len() - minDist) / 2.0)
+		angle := math.Atan2(float64(vector.Y()), float64(vector.X()))
+		e.X += math.Cos(angle+math.Pi) * pushDist
+		e.Y += math.Sin(angle+math.Pi) * pushDist
+		return true
+	}
+	return false
 }
 
 func (e *Enemy) CollideWithDungeon(dungeon *dungeon.Dungeon) {
