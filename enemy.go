@@ -32,6 +32,8 @@ func (e *Enemy) CollideWithPlayer(player *Player) bool {
 		angle := math.Atan2(float64(vector.Y()), float64(vector.X()))
 		e.X += math.Cos(angle+math.Pi) * pushDist
 		e.Y += math.Sin(angle+math.Pi) * pushDist
+		player.X += math.Cos(angle) * pushDist
+		player.Y += math.Sin(angle) * pushDist
 		return true
 	}
 	return false
