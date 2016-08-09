@@ -9,11 +9,13 @@ To test it out, simply clone the repo, `go get` and `go run game.go`
 Controls are as follows:
 
 * WASD to move
+* Space to kill nearest enemy
 * Mouse to look
 * Escape to quit
 
 It currently looks like this: 
-![](http://i.imgur.com/7koWbWq.png)
+![](http://i.imgur.com/pqYBQjQ.png)
 
 Older pictures:
+![](http://i.imgur.com/7koWbWq.png)
 ![](http://i.imgur.com/yxEU9KC.png)

@@ -6,7 +6,7 @@ import (
 )
 
 type Player struct {
-	X, Y, Yaw, Pitch, Speed, Size, Health float64
+	X, Y, Yaw, Pitch, Speed, Size, Health, LastAttack float64
 }
 
 func (p *Player) CollideWithDungeon(dungeon *dungeon.Dungeon) {

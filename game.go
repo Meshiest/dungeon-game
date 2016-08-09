@@ -95,6 +95,7 @@ func main() {
 	dungeon.Print()
 
 	enemies := []*Enemy{}
+	bloods := []*Blood{}
 
 	vertexArray = []float32{
 		// Enemy Sprite
@@ -241,6 +242,8 @@ func main() {
 
 	gl.Enable(gl.DEPTH_TEST)
 	gl.DepthFunc(gl.LESS)
+	gl.Enable(gl.BLEND)
+	gl.BlendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA)
 	gl.ClearColor(0, 0, 0, 1)
 
 	previousTime := glfw.GetTime()
@@ -332,9 +335,17 @@ func main() {
 		gl.DrawArrays(gl.TRIANGLES, int32(12+numFloorTiles*3*2), int32(numWallTiles*3*2))
 
 		gl.BindTexture(gl.TEXTURE_2D, enemyTexture)
-		for _, enemy := range enemies {
+		closest := -1
+		dist := float32(3)
+		for i, enemy := range enemies {
 
-			from := mgl32.Vec2{float32(player.X - enemy.X), float32(player.Y - enemy.Y)}.Normalize()
+			from := mgl32.Vec2{float32(player.X - enemy.X), float32(player.Y - enemy.Y)}
+			if from.Len() < dist {
+				dist = from.Len()
+				closest = i
+			}
+			from = from.Normalize()
+
 			enemy.X += float64(from.X()) * delta
 			enemy.Y += float64(from.Y()) * delta
 			if enemy.CollideWithPlayer(player) {
@@ -353,7 +364,26 @@ func main() {
 			gl.DrawArrays(gl.TRIANGLES, 0, 6)
 		}
 
+		if time-player.LastAttack > 0.5 && keys[glfw.KeySpace] {
+			if closest >= 0 {
+				player.LastAttack = time
+				bloods = append(bloods, NewBlood(enemies[closest].X, enemies[closest].Y))
+				if closest == len(enemies) {
+					enemies = enemies[:closest]
+				} else {
+					enemies = append(enemies[:closest], enemies[closest+1:]...)
+				}
+			}
+		}
+
 		gl.BindTexture(gl.TEXTURE_2D, bloodTexture)
+
+		for _, blood := range bloods {
+			model = mgl32.Translate3D(float32(blood.X), 0.01, float32(blood.Y))
+			model = model.Mul4(mgl32.HomogRotate3DY(float32(blood.Angle)))
+			gl.UniformMatrix4fv(modelUniform, 1, false, &model[0])
+			gl.DrawArrays(gl.TRIANGLES, 6, 6)
+		}
 
 		window.SwapBuffers()
 		glfw.PollEvents()
