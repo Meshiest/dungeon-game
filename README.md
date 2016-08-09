@@ -14,8 +14,10 @@ Controls are as follows:
 * Escape to quit
 
 It currently looks like this: 
-![](http://i.imgur.com/pqYBQjQ.png)
+![](http://i.imgur.com/6WGedCJ.png)
 
 Older pictures:
+
+![](http://i.imgur.com/pqYBQjQ.png)
 ![](http://i.imgur.com/7koWbWq.png)
 ![](http://i.imgur.com/yxEU9KC.png)

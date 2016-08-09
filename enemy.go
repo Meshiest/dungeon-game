@@ -60,3 +60,14 @@ func (e *Enemy) CollideWithDungeon(dungeon *dungeon.Dungeon) {
 		}
 	}
 }
+
+type EnemyRender struct {
+	Dist  float32
+	Enemy Enemy
+}
+
+type EnemyRenderOrder []*EnemyRender
+
+func (c EnemyRenderOrder) Len() int           { return len(c) }
+func (c EnemyRenderOrder) Swap(i, j int)      { c[i], c[j] = c[j], c[i] }
+func (c EnemyRenderOrder) Less(i, j int) bool { return c[i].Dist > c[j].Dist }

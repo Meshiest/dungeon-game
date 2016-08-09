@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/rand"
 	"runtime"
+	"sort"
 	"time"
 
 	"github.com/go-gl/gl/v4.1-core/gl"
@@ -334,12 +335,26 @@ func main() {
 		gl.BindTexture(gl.TEXTURE_2D, wallTexture)
 		gl.DrawArrays(gl.TRIANGLES, int32(12+numFloorTiles*3*2), int32(numWallTiles*3*2))
 
+		gl.BindTexture(gl.TEXTURE_2D, bloodTexture)
+
+		for _, blood := range bloods {
+			model = mgl32.Translate3D(float32(blood.X), 0.01, float32(blood.Y))
+			model = model.Mul4(mgl32.HomogRotate3DY(float32(blood.Angle)))
+			gl.UniformMatrix4fv(modelUniform, 1, false, &model[0])
+			gl.DrawArrays(gl.TRIANGLES, 6, 6)
+		}
+
 		gl.BindTexture(gl.TEXTURE_2D, enemyTexture)
 		closest := -1
 		dist := float32(3)
+		order := EnemyRenderOrder{}
 		for i, enemy := range enemies {
 
 			from := mgl32.Vec2{float32(player.X - enemy.X), float32(player.Y - enemy.Y)}
+			order = append(order, &EnemyRender{
+				Enemy: *enemy,
+				Dist:  from.Len(),
+			})
 			if from.Len() < dist {
 				dist = from.Len()
 				closest = i
@@ -358,6 +373,12 @@ func main() {
 				}
 			}
 			enemy.CollideWithDungeon(dungeon)
+		}
+
+		// order enemies by distance so transparent textures render correctly
+		sort.Sort(order)
+		for _, enemyRender := range order {
+			enemy := enemyRender.Enemy
 			model = mgl32.Translate3D(float32(enemy.X), 0.1, float32(enemy.Y))
 			model = model.Mul4(mgl32.HomogRotate3DY(float32(math.Pi/2 - math.Atan2(enemy.Y-player.Y, enemy.X-player.X))))
 			gl.UniformMatrix4fv(modelUniform, 1, false, &model[0])
@@ -374,15 +395,6 @@ func main() {
 					enemies = append(enemies[:closest], enemies[closest+1:]...)
 				}
 			}
-		}
-
-		gl.BindTexture(gl.TEXTURE_2D, bloodTexture)
-
-		for _, blood := range bloods {
-			model = mgl32.Translate3D(float32(blood.X), 0.01, float32(blood.Y))
-			model = model.Mul4(mgl32.HomogRotate3DY(float32(blood.Angle)))
-			gl.UniformMatrix4fv(modelUniform, 1, false, &model[0])
-			gl.DrawArrays(gl.TRIANGLES, 6, 6)
 		}
 
 		window.SwapBuffers()
