@@ -77,12 +77,13 @@ func main() {
 	rand.Seed(time.Now().Unix())
 
 	player := &Player{
-		Yaw:   0,
-		Pitch: 0,
-		X:     0,
-		Y:     0,
-		Speed: 2,
-		Size:  0.7,
+		Yaw:    0,
+		Pitch:  0,
+		X:      0,
+		Y:      0,
+		Speed:  2,
+		Size:   0.7,
+		Health: 1,
 	}
 	fov = 90.0
 	fmt.Println("Generating Dungeon...")
@@ -125,6 +126,7 @@ func main() {
 						X:    float64(x),
 						Y:    float64(y),
 						Size: 0.5,
+						DPS:  0.1,
 					})
 				}
 			}
@@ -311,8 +313,8 @@ func main() {
 		player.CollideWithDungeon(dungeon)
 
 		camera = mgl32.LookAt(
-			float32(player.X), float32(0.25), float32(player.Y),
-			float32(player.X+math.Cos(player.Yaw)), float32(0.25+math.Sin(player.Pitch)), float32(player.Y+math.Sin(player.Yaw)),
+			float32(player.X), float32(3.25), float32(player.Y),
+			float32(player.X+math.Cos(player.Yaw)), float32(3.25+math.Sin(player.Pitch)), float32(player.Y+math.Sin(player.Yaw)),
 			0, 1, 0,
 		)
 
@@ -331,9 +333,19 @@ func main() {
 
 		gl.BindTexture(gl.TEXTURE_2D, enemyTexture)
 		for _, enemy := range enemies {
+
 			from := mgl32.Vec2{float32(player.X - enemy.X), float32(player.Y - enemy.Y)}.Normalize()
 			enemy.X += float64(from.X()) * delta
 			enemy.Y += float64(from.Y()) * delta
+			if enemy.CollideWithPlayer(player) {
+				player.Health -= enemy.DPS * delta
+				//fmt.Println(player.Health)
+			}
+			for _, other := range enemies {
+				if enemy != other {
+					enemy.CollideWithEnemy(other)
+				}
+			}
 			enemy.CollideWithDungeon(dungeon)
 			model = mgl32.Translate3D(float32(enemy.X), 0.1, float32(enemy.Y))
 			model = model.Mul4(mgl32.HomogRotate3DY(float32(math.Pi/2 - math.Atan2(enemy.Y-player.Y, enemy.X-player.X))))
