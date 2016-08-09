@@ -313,8 +313,8 @@ func main() {
 		player.CollideWithDungeon(dungeon)
 
 		camera = mgl32.LookAt(
-			float32(player.X), float32(3.25), float32(player.Y),
-			float32(player.X+math.Cos(player.Yaw)), float32(3.25+math.Sin(player.Pitch)), float32(player.Y+math.Sin(player.Yaw)),
+			float32(player.X), float32(0.25), float32(player.Y),
+			float32(player.X+math.Cos(player.Yaw)), float32(0.25+math.Sin(player.Pitch)), float32(player.Y+math.Sin(player.Yaw)),
 			0, 1, 0,
 		)
 
